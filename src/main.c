@@ -35,7 +35,7 @@ void test_build_nodes () {
 
 void construct_and_dump_to_file(GraphHandle (*constructor)(uint32_t), uint32_t graph_size, const char* filename) {
   char filepath[64];
-  snprintf(filepath, sizeof(filepath), "bin/%s.dot", filename);
+  snprintf(filepath, sizeof(filepath), "%s.dot", filename);
 
   LOG_INFO("Building graph %s", filename);
   GraphHandle graph = constructor(graph_size);

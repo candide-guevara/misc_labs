@@ -22,12 +22,10 @@ headers = $(wildcard $(INC_DIR)/*.h)
 c_files = $(wildcard $(SRC_DIR)/*.c)
 objects = $(addsuffix .o, $(basename $(notdir $(c_files))))
 
-all: init $(flavors);
-init: $(addprefix $(BIN_DIR)/, $(flavors));
-$(addprefix $(BIN_DIR)/, $(flavors)) : 
-	mkdir -p $@
-
-%: $(BIN_DIR)/%/project ;
+all: $(flavors);
+%: init_% $(BIN_DIR)/%/project ;
+init_% :
+	mkdir -p "$(BIN_DIR)/$*"
 
 %_images : %
 	cd $(BIN_DIR)

@@ -208,8 +208,8 @@ void destructive_pointer_reversal_traversal(Node* node, void* state, void (*visi
 
 void dump_graph_dot_format(GraphHandle graph, const char* filepath) {
   FILE* dot_file = fopen(filepath, "w");
-  ASSERT(dot_file, "Failed to open file : ");
   LOG_INFO("Dumping graph to %s", filepath);
+  ASSERT(dot_file, "Failed to open file");
 
   fprintf(dot_file, "strict digraph {\n");
   fprintf(dot_file, "  node  [ nodesep=1.5 ];\n");
