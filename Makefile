@@ -30,6 +30,7 @@ init_% :
 %_images : %
 	cd $(BIN_DIR)
 	$^/project
+	echo building images for *.dot
 	for f in *.dot; do cat $$f | neato -Tsvg > "$${f}.svg"; done
 
 package :

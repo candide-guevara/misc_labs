@@ -6,12 +6,12 @@
 GraphHandle build_graph_without_any_edges(uint32_t size) {
   ASSERT(size, "Cannot create an empty graph");
   GraphHandle graph;
-  graph.root = calloc(size, sizeof(CountedNode));
+  graph.root = calloc(size, sizeof(Node));
   graph.vertex_count = size;
   ASSERT(graph.root, "Could not allocate root memory");
 
   for(uint32_t i=0; i<size; ++i)
-    build_counted_node_in_place(graph.root + i, NULL);
+    build_node_in_place(graph.root + i, i);
 
   LOG_INFO("Built graph with %d nodes", graph.vertex_count);
   return graph;
@@ -198,12 +198,6 @@ void two_way_depth_first_traversal(Node* node, void* state,
   if (out_visitor) out_visitor(state, node);
 }
 
-void pointer_reversal_traversal(Node* node, void* state, void (*visitor)(void*, Node*)) {
-}
-
-void destructive_pointer_reversal_traversal(Node* node, void* state, void (*visitor)(void*, Node*)) {
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void dump_graph_dot_format(GraphHandle graph, const char* filepath) {
@@ -218,6 +212,9 @@ void dump_graph_dot_format(GraphHandle graph, const char* filepath) {
 
   for(uint32_t i=0; i<graph.vertex_count; ++i) {
     Node* node = (Node*)(graph.root + i);
+    LOG_TRACE("Printing %u : %s", i, node->name);
+    fprintf(dot_file, "  \"%s\"\n", node->name);
+
     for(uint32_t slot=0; slot < SLOT_COUNT; ++slot) {
       Node* child = node->slots[slot];
       if (child)
