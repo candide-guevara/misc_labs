@@ -1,6 +1,7 @@
-#include <graph.h>
+#include <special_traversals.h>
 
 #include <common.h>
+#include <util.h>
 
 void pointer_reversal_traversal(Node* node, void* state, void (*visitor)(void*, Node*)) {
 }
@@ -46,60 +47,78 @@ void destructive_pointer_reversal_traversal(Node* node, void* state, void (*visi
   }
 }
 
-struct TraverseState {
-  Node *tail, *parent;
-  uint32_t gen, queue_len;
-};
-typedef struct TraverseState TraverseState;
-
-struct EdgeParams {
-  uint32_t inv_idx, min_idx, min_gen;
-};
-typedef struct EdgeParams EdgeParams;
-
-struct NodeAndIdx {
-  uint32_t idx;
-  Node* node;
-};
-typedef struct NodeAndIdx NodeAndIdx;
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void pointer_back_and_forth_traversal(Node* node, void* visitor_state, void (*visitor)(void*, Node*)) {
-  TraverseState state = prepare_initial_state__mut(node, visitor_state);
+  TraverseState state = prepare_initial_state__mut(node, visitor_state, visitor);
+  if (!state.queue_len) return;
 
-  while (state.queue_len) {
-    uint32_t increment = visit_childs_tag_generation__mut(state.tail, visitor_state, state.gen);
-    state.gen += increment;
-    state.queue_len += increment - 1;
-    uint32_t tail_gen = state.gen + 1 - state.queue_len;
+  while (1) {
+    uint32_t visit_count = visit_childs_tag_generation__mut(state.tail, visitor_state, visitor, state.gen);
+    adjust_state_based_on_nodes_visited__mut(&state, visit_count);
+    if (!state.queue_len) return;
 
-    tail = traverse_back_tag_generation__mut(state.tail, state.parent, tail_gen);
+    // we go backward then we pivot and move forward looking for the new tail node
+    EdgeParams params = {0};
+
+    if (visit_count)
+      params = backward_invert_edges__mut(&state);
+    else 
+      backward_prune_exhausted_branch__mut(&state);
+
+    pivot_back_forward_edges__mut(&state, params);
+    forward_invert_edges__mut(&state);
   }
 }
 
-TraverseState prepare_initial_state__mut(Node *root, void* visitor_state) {
+void backward_prune_exhausted_branch__mut(TraverseState *state) {
+  EdgeParams params = {0};
+  // Invariant : the tail node has no forward edges
+  while (!params.min_gen) {
+    state->tail = state->parent;
+    state->parent = follow_edge(state->parent->slots[params.inv_idx]);
+    state->tail->slots[params.inv_idx] = NULL;
+    ASSERT(state->parent, "We should not go past the root while pruning backwards");
+
+    params = get_node_edge_parameters(state->tail);
+    ASSERT(is_backwards(state->tail->slots[params.inv_idx]), "There should always be a backward edge");
+  }
+  ASSERT(state->tail->count == state->next_tail_gen, "When we cannot prune further we should be at the target generation");
+}
+
+void adjust_state_based_on_nodes_visited__mut(TraverseState *state, uint32_t visit_count) {
+  state->gen += visit_count;
+  state->queue_len += visit_count - 1;
+  state->next_tail_gen += 1;
+  ASSERT(state->queue_len < state->gen, "generation > queue_len");
+  ASSERT(state->queue_len >= 0 , "We should have stopped before queue_len < 0");
+}
+
+TraverseState prepare_initial_state__mut(Node *root, void* visitor_state, void (*visitor)(void*, Node*)) {
   TraverseState state = {0};
   if (!root) return state;
 
   visitor(visitor_state, root);
-  uint32_t increment = visit_childs_tag_generation__mut(root, visitor_state, 0);
+  uint32_t visit_count = visit_childs_tag_generation__mut(root, visitor_state, visitor, 0);
 
-  if (increment) {
+  if (visit_count) {
     uint32_t tail_idx=0;
     for(; tail_idx<SLOT_COUNT && root->slots[tail_idx] == NULL; ++tail_idx);
 
     state.tail = root->slots[tail_idx];
     state.parent = root;
-    state.parent->count = increment;
-    state.queue_len = increment;
-    state.gen = increment;
+    state.parent->count = 1;
+    state.queue_len = visit_count;
+    state.gen = visit_count;
+    state.next_tail_gen = 1;
 
-    root->slots[tail_idx] = set_and_toggle(NULL);
+    root->slots[tail_idx] = to_backwards_edge(NULL);
   }
   return state;
 }
 
-uint32_t visit_childs_tag_generation__mut(Node* node, void* state, uint32_t start_gen) {
-  uint32_t increment = 0;
+uint32_t visit_childs_tag_generation__mut(Node* node, void* state, void (*visitor)(void*, Node*), uint32_t start_gen) {
+  uint32_t visit_count = 0;
 
   for(uint32_t i=0; i<SLOT_COUNT; ++i)
     if (node->slots[i]) {
@@ -110,85 +129,85 @@ uint32_t visit_childs_tag_generation__mut(Node* node, void* state, uint32_t star
         node->slots[i] = NULL;
       }
       else {
-        increment += 1;
-        child->count = start_gen + increment;
+        visit_count += 1;
+        child->count = start_gen + visit_count;
         visitor(state, child);
       }
     }
 
-  // A node count is the minimum generation reachable from it
-  if(increment)
+  // A node has the same generation as the smallest of its visited ancestors
+  if(visit_count)
     node->count = start_gen + 1;
-  return increment;
+  return visit_count;
 }
 
-Node* traverse_back_tag_generation__mut(Node *tail, Node *parent, uint32_t tail_gen) {
+EdgeParams backward_invert_edges__mut(TraverseState *state) {
   EdgeParams params = {0};
   Node *grand_pa = NULL;
 
-  // go backwards, update generation and invert edges
   // Invariant : (grand_pa / NULL) <-- (parent)   (tail)
   while(1) {
-    params = get_node_edge_parameters(parent);
-    grand_pa = follow_edge(parent->slots[params.inv_idx]);
+    params = get_node_edge_parameters(state->parent);
+    ASSERT(state->parent->count <= state->tail->count, "While going backwards children always hold a higher gen than parents");
+    ASSERT(is_backwards(state->parent->slots[params.inv_idx]), "There should always be a backward edge");
+    grand_pa = follow_edge(state->parent->slots[params.inv_idx]);
 
-    if (params.min_gen)
-      parent->count = params.min_gen;
-    else
-      parent->count = tail->count;
+    state->parent->count = params.min_gen ? params.min_gen : state->tail->count;
+    ASSERT(state->parent->count >= state->next_tail_gen, "While going backwards we never go under the target generation");
 
-    // no need to keep going backwards, parent->count < tail_gen when a branch did not yield any new nodes to append to the queue
-    if (parent->count <= tail_gen) break;
+    // we have found the closest ancestor of the node we are looking for
+    if (state->parent->count == state->next_tail_gen) break;
 
-    parent->slots[params.inv_idx] = tail;
-    tail = parent;
-    parent = grand_pa;
-    ASSERT(parent, "Reached root without finding tail");
+    state->parent->slots[params.inv_idx] = state->tail;
+    state->tail = state->parent;
+    state->parent = grand_pa;
+    ASSERT(state->parent, "We should not go past the root while going backwards");
   }
+  // The edge params of the node where the traversal must change direction
+  // Or the default value on a degenerate case : no need to backward to reach the next tail node
+  return params;
+}
 
-  // pivot edges : the edge pointing to the lowest generation is swapped with the edge pointinng to the highest
-  parent->slots[params.inv_idx] = tail;
-  tail = parent->slots[params.min_idx];
-  parent->slots[params.min_idx] = set_and_toggle(grand_pa);
+void pivot_back_forward_edges__mut(TraverseState *state, EdgeParams params) {
+  // degenerate case : no need to backward to reach the next tail node
+  if (!params.min_gen) return;
 
-  // go forwards and invert edges
+  Node *grand_pa = follow_edge(state->parent->slots[params.inv_idx]);
+  state->parent->slots[params.inv_idx] = state->tail;
+  state->tail = state->parent->slots[params.min_idx];
+  state->parent->slots[params.min_idx] = to_backwards_edge(grand_pa);
+  ASSERT(state->tail->count == state->next_tail_gen, "The pivoted edge should have pointed to the next tail node");
+}
+
+void forward_invert_edges__mut(TraverseState *state) {
   while(1) {
-    NodeAndIdx child = get_child_matching_gen(parent, tail_gen);
-    grand_pa = parent;
-    parent = tail;
+    ASSERT(state->tail->count == state->next_tail_gen, "Going forward we only traverse ancestors of the target tail");
+    EdgeParams params = get_node_edge_parameters(state->tail);
 
-    if (!child.node) {
-      ASSERT(tail->count == tail_gen, "Here parent should be the node further down in the tree matching tail_gen");
-      break;
-    }
+    // we have found a node whose children have not been visited that has the generation we want => this is the tail
+    if (!params.min_gen) break;
+    ASSERT(params.min_gen == state->next_tail_gen, "There cannot be a path leading to a lower generation than next tail");
 
-    tail = child.node;
-    parent->slots[child.idx] = set_and_toggle(grand_pa);
+    Node *grand_pa = state->parent;
+    state->parent = state->tail;
+    state->tail = state->tail->slots[params.min_idx];
+    state->parent->slots[params.min_idx] = to_backwards_edge(grand_pa);
   }
-  return tail;
 }
 
 EdgeParams get_node_edge_parameters(Node *node) {
   EdgeParams params = {0};
+
   for(uint32_t i=0; i<SLOT_COUNT; ++i) {
-    if (is_backwards(node->slots[i]))
+    if (is_backwards(node->slots[i])) {
+      ASSERT(!is_backwards(node->slots[params.inv_idx]), "There can only be one backward edge");
       params.inv_idx = i;
+    }
     else if (node->slots[i] && (!params.min_gen || params.min_gen > node->slots[i]->count)) {
       params.min_idx = i;
       params.min_gen = node->slots[i]->count;
     }
   }
   return params;
-}
-
-NodeAndIdx get_child_matching_gen(Node *node, uint32_t generation) {
-  NodeAndIdx nodeAndIdx = {0};
-  for(uint32_t i=0; i<SLOT_COUNT; ++i) 
-    if (node->slots[i] && node->slots[i]->count == generation) {
-      nodeAndIdx.node = node->slots[i];
-      nodeAndIdx.idx = i;
-      break;
-    }
-  return nodeAndIdx;
 }
 

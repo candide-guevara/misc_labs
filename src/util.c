@@ -33,3 +33,26 @@ void* peek(Stack* stack, size_t index) {
   return stack->items[index];
 }
 
+////////////////////////////////////////////////////////////////////////////
+
+void* to_backwards_edge(void* new_value) {
+  PointerFlag pt_flag;
+  pt_flag.pointer = new_value;
+  pt_flag.flag |= SET_BACK_FLAG;
+  return pt_flag.pointer;
+}
+
+void* follow_edge(void* value) {
+  PointerFlag pt_flag;
+  pt_flag.pointer = value;
+  pt_flag.flag &= DEL_BACK_FLAG;
+  return pt_flag.pointer;
+}
+
+uint32_t is_backwards(void* value) {
+  PointerFlag pt_flag;
+  pt_flag.pointer = value;
+  pt_flag.flag &= SET_BACK_FLAG;
+  return pt_flag.flag;
+}
+

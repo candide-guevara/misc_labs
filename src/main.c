@@ -1,5 +1,6 @@
 #include <common.h>
 #include <graph.h>
+#include <special_traversals.h>
 
 void test_build_nodes();
 void test_destructive_traversal(uint32_t);
