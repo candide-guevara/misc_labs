@@ -9,13 +9,16 @@ struct GraphHandle {
   uint32_t vertex_count;
 };
 
+void free_graph(GraphHandle graph);
+
 GraphHandle build_graph_without_any_edges(uint32_t size);
 GraphHandle build_graph_dag(uint32_t size);
 GraphHandle build_graph_dag_maybe_disconnected(uint32_t size);
 GraphHandle build_graph_with_cycles(uint32_t size);
 GraphHandle build_graph_with_undirected_cycles(uint32_t size);
 GraphHandle build_graph_amorphous(uint32_t size);
-void free_graph(GraphHandle graph);
+
+GraphHandle build_graph_single_branch(uint32_t size);
 
 // Infinite recursion if cycles
 void standard_depth_first_traversal(Node* node, void* state, void (*visitor)(void*, Node*));

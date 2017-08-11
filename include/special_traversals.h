@@ -7,7 +7,7 @@ void pointer_reversal_traversal(Node* node, void* state, void (*visitor)(void*, 
 // Depth first, after traversal the graph becomes unusable
 void destructive_pointer_reversal_traversal(Node* node, void* state, void (*visitor)(void*, Node*));
 // Inefficient breadth first
-void pointer_back_and_forth_traversal(Node* node, void* state, void (*visitor)(void*, Node*));
+void destructive_pointer_back_and_forth_traversal(Node* node, void* state, void (*visitor)(void*, Node*));
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -43,4 +43,9 @@ void pivot_back_forward_edges__mut(TraverseState *state, EdgeParams params);
 void forward_invert_edges__mut(TraverseState *state);
 
 EdgeParams get_node_edge_parameters(Node *node);
+
+// Returns true if the node has a loop to itself
+// Or we have something like : -- (gen:7) <-- (gen:7) <-- (gen:7)
+//                                   ^______________________/
+uint32_t pathological_branch_loop_back(Node *node, uint32_t child_edge);
 

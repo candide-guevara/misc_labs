@@ -49,7 +49,7 @@ void destructive_pointer_reversal_traversal(Node* node, void* state, void (*visi
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void pointer_back_and_forth_traversal(Node* node, void* visitor_state, void (*visitor)(void*, Node*)) {
+void destructive_pointer_back_and_forth_traversal(Node* node, void* visitor_state, void (*visitor)(void*, Node*)) {
   TraverseState state = prepare_initial_state__mut(node, visitor_state, visitor);
   if (!state.queue_len) return;
 
@@ -75,14 +75,17 @@ void backward_prune_exhausted_branch__mut(TraverseState *state) {
   EdgeParams params = {0};
   // Invariant : the tail node has no forward edges
   while (!params.min_gen) {
+    ASSERT(state->parent, "We should not go past the root while pruning backwards");
+    params = get_node_edge_parameters(state->parent);
+    ASSERT(is_backwards(state->parent->slots[params.inv_idx]), "There should always be a backward edge");
+
     state->tail = state->parent;
     state->parent = follow_edge(state->parent->slots[params.inv_idx]);
-    state->tail->slots[params.inv_idx] = NULL;
-    ASSERT(state->parent, "We should not go past the root while pruning backwards");
-
-    params = get_node_edge_parameters(state->tail);
-    ASSERT(is_backwards(state->tail->slots[params.inv_idx]), "There should always be a backward edge");
   }
+  // we reached a node with unvisited ancestors, recalculate generation after prune
+  state->tail->count = params.min_gen;
+  // we keep the invariant that between parent and tail there is no edge
+  state->tail->slots[params.inv_idx] = NULL;
   ASSERT(state->tail->count == state->next_tail_gen, "When we cannot prune further we should be at the target generation");
 }
 
@@ -99,6 +102,9 @@ TraverseState prepare_initial_state__mut(Node *root, void* visitor_state, void (
   if (!root) return state;
 
   visitor(visitor_state, root);
+  state.parent = root;
+  // we set the root generation now in case it has edges pointing to itself
+  state.parent->count = 1;
   uint32_t visit_count = visit_childs_tag_generation__mut(root, visitor_state, visitor, 0);
 
   if (visit_count) {
@@ -106,8 +112,6 @@ TraverseState prepare_initial_state__mut(Node *root, void* visitor_state, void (
     for(; tail_idx<SLOT_COUNT && root->slots[tail_idx] == NULL; ++tail_idx);
 
     state.tail = root->slots[tail_idx];
-    state.parent = root;
-    state.parent->count = 1;
     state.queue_len = visit_count;
     state.gen = visit_count;
     state.next_tail_gen = 1;
@@ -184,9 +188,13 @@ void forward_invert_edges__mut(TraverseState *state) {
     ASSERT(state->tail->count == state->next_tail_gen, "Going forward we only traverse ancestors of the target tail");
     EdgeParams params = get_node_edge_parameters(state->tail);
 
-    // we have found a node whose children have not been visited that has the generation we want => this is the tail
-    if (!params.min_gen) break;
-    ASSERT(params.min_gen == state->next_tail_gen, "There cannot be a path leading to a lower generation than next tail");
+    // we have found a node whose children have not been visited that has the generation we want 
+    if (!params.min_gen 
+        // or whose children lowest gen does not match (this indicates a cycle to an already visited node)
+        || params.min_gen != state->next_tail_gen
+        || pathological_branch_loop_back(state->tail, params.min_idx) ) 
+      // => this is the tail
+      break;
 
     Node *grand_pa = state->parent;
     state->parent = state->tail;
@@ -200,7 +208,7 @@ EdgeParams get_node_edge_parameters(Node *node) {
 
   for(uint32_t i=0; i<SLOT_COUNT; ++i) {
     if (is_backwards(node->slots[i])) {
-      ASSERT(!is_backwards(node->slots[params.inv_idx]), "There can only be one backward edge");
+      ASSERT(params.inv_idx == i || !is_backwards(node->slots[params.inv_idx]), "There can only be one backward edge");
       params.inv_idx = i;
     }
     else if (node->slots[i] && (!params.min_gen || params.min_gen > node->slots[i]->count)) {
@@ -209,5 +217,16 @@ EdgeParams get_node_edge_parameters(Node *node) {
     }
   }
   return params;
+}
+
+uint32_t pathological_branch_loop_back(Node *node, uint32_t child_edge) {
+  Node *child = node->slots[child_edge];
+  uint32_t is_a_loop = child == node;
+  // The inverted edge we write while traversing forward serves as a "breadcrumb" 
+  // to identify the previous nodes of this branch
+  for(uint32_t i=0; i<SLOT_COUNT && !is_a_loop; ++i) 
+    if (is_backwards(child->slots[i])) 
+      is_a_loop = 1;
+  return is_a_loop;
 }
 

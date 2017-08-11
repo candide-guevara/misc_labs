@@ -172,6 +172,15 @@ void free_graph(GraphHandle graph) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+GraphHandle build_graph_single_branch(uint32_t size) {
+  GraphHandle graph = build_graph_without_any_edges(size);
+  for(uint32_t i=0; i<size-1; ++i)
+    graph.root[i].slots[0] = graph.root + i + 1;
+  return graph;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void standard_depth_first_traversal(Node* node, void* state, void (*visitor)(void*, Node*)) {
   if (!node) return;
   LOG_TRACE("Visit : %s", node->name);
