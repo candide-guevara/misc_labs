@@ -3,7 +3,9 @@
 #include <common.h>
 
 static const char* DICTIONARY[] = {
-  "monkey", "chimp", "gorilla", "orangutan", "bonobo", "gibbon", "baboon", "mandrill", "tamarin", "saimiri", "capuchin", "titi", "nim_chimpsky"
+  "monkey", "chimp", "gorilla", "orangutan", "bonobo", "gibbon", "macaque", 
+  "baboon", "mandrill", "tamarin", "saimiri", "capuchin", "nim_chimpsky",
+  "marmoset", "alouatta", "uakari"
 };
 static const uint32_t DICT_LEN = sizeof(DICTIONARY) / sizeof(const char*);
 
@@ -24,6 +26,7 @@ Node build_node (uint32_t id) {
 
 const char* print_node (Node* node) {
   static char __BUFFER__[256];
+  if (!node) return "NULL";
   size_t written_count = snprintf(__BUFFER__, sizeof(__BUFFER__), "Node::%s[%d] ", 
                                   node->name, node->count);
   print_slots((Node*)node, __BUFFER__ + written_count, sizeof(__BUFFER__) - written_count);

@@ -3,11 +3,11 @@
 #include <common.h>
 #include <util.h>
 
-void pointer_reversal_traversal(Node* node, void* state, void (*visitor)(void*, Node*)) {
+void pointer_reversal_traversal(Node* node, VisitorState* visit_state, Visitor_t visitor) {
 }
 
 // We expected all node in the graph have count == 0
-void destructive_pointer_reversal_traversal(Node* node, void* state, void (*visitor)(void*, Node*)) {
+void destructive_pointer_reversal_traversal(Node* node, VisitorState* visit_state, Visitor_t visitor) {
   // we use poison to avoid an end of traversal condition branch
   Node poison = build_node(0);
   poison.slots[0] = &poison;
@@ -24,7 +24,7 @@ void destructive_pointer_reversal_traversal(Node* node, void* state, void (*visi
     uint32_t next_slot = node->count;
     // If count > 0 we have already visited this node, we also use it to index slots[]
     if (node->count == 0)
-      visitor(state, node);
+      visitor(visit_state, node);
 
     for(; next_slot < SLOT_COUNT && !node->slots[next_slot]; ++next_slot);
     if (next_slot == SLOT_COUNT) {
@@ -49,29 +49,32 @@ void destructive_pointer_reversal_traversal(Node* node, void* state, void (*visi
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void destructive_pointer_back_and_forth_traversal(Node* node, void* visitor_state, void (*visitor)(void*, Node*)) {
-  TraverseState state = prepare_initial_state__mut(node, visitor_state, visitor);
+void destructive_pointer_back_and_forth_traversal(Node* node, VisitorState* visit_state, Visitor_t visitor) {
+  TraverseState state = prepare_initial_state__mut(node, visit_state, visitor);
   if (!state.queue_len) return;
 
   while (1) {
-    uint32_t visit_count = visit_childs_tag_generation__mut(state.tail, visitor_state, visitor, state.gen);
+    debug_pointer_back_and_forth_traversal_state(state, visit_state);
+    uint32_t visit_count = visit_childs_tag_generation__mut(state.tail, visit_state, visitor, state.gen);
     adjust_state_based_on_nodes_visited__mut(&state, visit_count);
     if (!state.queue_len) return;
 
     // we go backward then we pivot and move forward looking for the new tail node
     EdgeParams params = {0};
+    uint32_t tail_gen = 0;
 
-    if (visit_count)
+    if (!visit_count)
+      tail_gen = backward_prune_exhausted_branch__mut(&state);
+    if (tail_gen != state.next_tail_gen)
       params = backward_invert_edges__mut(&state);
-    else 
-      backward_prune_exhausted_branch__mut(&state);
 
     pivot_back_forward_edges__mut(&state, params);
     forward_invert_edges__mut(&state);
   }
+  debug_pointer_back_and_forth_traversal_state(state, visit_state);
 }
 
-void backward_prune_exhausted_branch__mut(TraverseState *state) {
+uint32_t backward_prune_exhausted_branch__mut(TraverseState *state) {
   EdgeParams params = {0};
   // Invariant : the tail node has no forward edges
   while (!params.min_gen) {
@@ -82,11 +85,12 @@ void backward_prune_exhausted_branch__mut(TraverseState *state) {
     state->tail = state->parent;
     state->parent = follow_edge(state->parent->slots[params.inv_idx]);
   }
-  // we reached a node with unvisited ancestors, recalculate generation after prune
+  // we reached a node with ancestors in the visit queue, recalculate generation after prune
   state->tail->count = params.min_gen;
   // we keep the invariant that between parent and tail there is no edge
   state->tail->slots[params.inv_idx] = NULL;
-  ASSERT(state->tail->count == state->next_tail_gen, "When we cannot prune further we should be at the target generation");
+  ASSERT(state->tail->count >= state->next_tail_gen, "When we cannot prune further we should be at a higher generation");
+  return state->tail->count;
 }
 
 void adjust_state_based_on_nodes_visited__mut(TraverseState *state, uint32_t visit_count) {
@@ -97,15 +101,16 @@ void adjust_state_based_on_nodes_visited__mut(TraverseState *state, uint32_t vis
   ASSERT(state->queue_len >= 0 , "We should have stopped before queue_len < 0");
 }
 
-TraverseState prepare_initial_state__mut(Node *root, void* visitor_state, void (*visitor)(void*, Node*)) {
+TraverseState prepare_initial_state__mut(Node *root, VisitorState* visit_state, Visitor_t visitor) {
   TraverseState state = {0};
   if (!root) return state;
+  debug_pointer_back_and_forth_traversal_state(state, visit_state);
 
-  visitor(visitor_state, root);
+  visitor(visit_state, root);
   state.parent = root;
   // we set the root generation now in case it has edges pointing to itself
   state.parent->count = 1;
-  uint32_t visit_count = visit_childs_tag_generation__mut(root, visitor_state, visitor, 0);
+  uint32_t visit_count = visit_childs_tag_generation__mut(root, visit_state, visitor, 1);
 
   if (visit_count) {
     uint32_t tail_idx=0;
@@ -113,18 +118,19 @@ TraverseState prepare_initial_state__mut(Node *root, void* visitor_state, void (
 
     state.tail = root->slots[tail_idx];
     state.queue_len = visit_count;
-    state.gen = visit_count;
-    state.next_tail_gen = 1;
+    state.gen = visit_count + 1;
+    state.next_tail_gen = 2;
 
     root->slots[tail_idx] = to_backwards_edge(NULL);
   }
   return state;
 }
 
-uint32_t visit_childs_tag_generation__mut(Node* node, void* state, void (*visitor)(void*, Node*), uint32_t start_gen) {
+uint32_t visit_childs_tag_generation__mut(Node* node, VisitorState* visit_state, Visitor_t visitor, uint32_t start_gen) {
   uint32_t visit_count = 0;
 
-  for(uint32_t i=0; i<SLOT_COUNT; ++i)
+  for(uint32_t i=0; i<SLOT_COUNT; ++i) {
+    ASSERT(!is_backwards(node->slots[i]), "The tail node can only have edges going forward");
     if (node->slots[i]) {
       Node *child = node->slots[i];
       // cycle detected, remove edge to avoid recursion
@@ -135,10 +141,10 @@ uint32_t visit_childs_tag_generation__mut(Node* node, void* state, void (*visito
       else {
         visit_count += 1;
         child->count = start_gen + visit_count;
-        visitor(state, child);
+        visitor(visit_state, child);
       }
     }
-
+  }
   // A node has the same generation as the smallest of its visited ancestors
   if(visit_count)
     node->count = start_gen + 1;
@@ -228,5 +234,20 @@ uint32_t pathological_branch_loop_back(Node *node, uint32_t child_edge) {
     if (is_backwards(child->slots[i])) 
       is_a_loop = 1;
   return is_a_loop;
+}
+
+void debug_pointer_back_and_forth_traversal_state(TraverseState state, VisitorState* visit_state) {
+  //#define TRAVERSE_TRACE
+  #ifdef TRAVERSE_TRACE
+  char filepath[128];
+  Node *root = visit_state->graph.root;
+  snprintf(filepath, sizeof(filepath), "graph_%s_%u_%u_%u.dot", 
+            root->name, state.gen, state.next_tail_gen, state.queue_len);
+  dump_graph_dot_format(visit_state->graph, filepath);
+
+  LOG_INFO("state : %p, %p, %u, %u, %u", state.tail, state.parent, state.gen, state.next_tail_gen, state.queue_len);
+  LOG_INFO("tail : %s", print_node(state.tail));
+  LOG_INFO("parent : %s\n", print_node(state.parent));
+  #endif
 }
 

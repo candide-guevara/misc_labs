@@ -1,6 +1,6 @@
 .ONESHELL:
 .SECONDARY:
-.PHONY: all clean 
+.PHONY: all clean images
 
 BIN_DIR := bin
 SRC_DIR := src
@@ -27,9 +27,8 @@ all: $(flavors);
 init_% :
 	mkdir -p "$(BIN_DIR)/$*"
 
-%_images : %
+images : 
 	cd $(BIN_DIR)
-	$^/project
 	echo building images for *.dot
 	for f in *.dot; do cat $$f | neato -Tsvg > "$${f}.svg"; done
 
