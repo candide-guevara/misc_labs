@@ -9,6 +9,12 @@ static const char* DICTIONARY[] = {
 };
 static const uint32_t DICT_LEN = sizeof(DICTIONARY) / sizeof(const char*);
 
+void build_node_in_place_with_name(Node* node, const char* name) {
+  bzero(node, sizeof(Node));
+  strncpy(node->name, name, (size_t)NAME_LEN);
+  LOG_TRACE("Built node %s", node->name);
+}
+
 void build_node_in_place(Node* node, uint32_t id) {
   bzero(node, sizeof(Node));
   strncpy(node->name, give_me_random_name(id), (size_t)NAME_LEN);
@@ -18,7 +24,12 @@ void build_node_in_place(Node* node, uint32_t id) {
 Node build_node (uint32_t id) {
   Node n;
   build_node_in_place(&n, id);
-  n.count = 0;
+  return n;
+}
+
+Node build_node_with_name (const char *name) {
+  Node n;
+  build_node_in_place_with_name(&n, name);
   return n;
 }
 

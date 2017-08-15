@@ -111,6 +111,8 @@ void count_visitor (VisitorState* visit_state, Node* node) {
   LOG_TRACE(" - %d, %p, %s", user_state->counter, node, print_node(node));
 }
 
+void nop_visitor (VisitorState* visit_state, Node* node) {}
+
 ////////////////////////////////////////////////////////////////////////////
 
 GraphHandle construct_and_dump_to_file(GraphHandle (*constructor)(uint32_t), uint32_t graph_size, const char* filename) {
@@ -123,10 +125,11 @@ GraphHandle construct_and_dump_to_file(GraphHandle (*constructor)(uint32_t), uin
   return graph;
 }
 
+STATIC_ASSERT((SLOT_COUNT > 1), too_few_slots);
+
 // @breadth_order : The other of breadth first visit is the order of node allocation
 GraphHandle build_graph_triangle() {
   GraphHandle graph = build_graph_without_any_edges(3);
-  ASSERT(SLOT_COUNT > 1, "Cannot build triangle graph in this configuration");
   graph.root[0].slots[0] = graph.root + 1;
   graph.root[0].slots[1] = graph.root + 2;
   return graph;
@@ -135,7 +138,6 @@ GraphHandle build_graph_triangle() {
 // @breadth_order : The other of breadth first visit is the order of node allocation
 GraphHandle build_graph_diamond() {
   GraphHandle graph = build_graph_without_any_edges(4);
-  ASSERT(SLOT_COUNT > 1, "Cannot build diamond graph in this configuration");
   graph.root[0].slots[0] = graph.root + 1;
   graph.root[0].slots[1] = graph.root + 2;
   graph.root[1].slots[0] = graph.root + 3;
@@ -145,7 +147,6 @@ GraphHandle build_graph_diamond() {
 
 GraphHandle build_graph_unbalanced_branches() {
   GraphHandle graph = build_graph_without_any_edges(7);
-  ASSERT(SLOT_COUNT > 1, "Cannot build multi branch graph in this configuration");
   graph.root[0].slots[0] = graph.root + 1;
   graph.root[1].slots[0] = graph.root + 2;
   graph.root[2].slots[0] = graph.root + 3;
@@ -159,7 +160,6 @@ GraphHandle build_graph_unbalanced_branches() {
 // @breadth_order : The other of breadth first visit is the order of node allocation
 GraphHandle build_graph_branch_with_fanout() {
   GraphHandle graph = build_graph_without_any_edges(3 + SLOT_COUNT);
-  ASSERT(SLOT_COUNT > 1, "Cannot build triangle graph in this configuration");
   graph.root[0].slots[0] = graph.root + 1;
   graph.root[1].slots[0] = graph.root + 2;
   for(uint32_t i=0; i<SLOT_COUNT; ++i)

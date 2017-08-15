@@ -19,7 +19,9 @@ struct Node {
 };
 
 Node build_node(uint32_t id);
+Node build_node_with_name (const char *name);
 void build_node_in_place(Node* node, uint32_t id);
+void build_node_in_place_with_name(Node* node, const char* name);
 
 const char* print_node(Node* node);
 void print_slots(Node* node, char* buffer, int32_t buffer_len);

@@ -75,6 +75,36 @@ void helper_traversal_on_real_graphs(uint32_t graph_size, TraversalAlgo_t traver
   free_count_state(visit_state);
 }
 
+void helper_non_destructive_traversal_on_real_graphs(uint32_t graph_size, TraversalAlgo_t traversal_algo) {
+  VisitorState* visit_state = new_count_state();
+  GraphHandle graphs[3];
+
+  graphs[0] = build_graph_dag(graph_size);
+  for(uint32_t i=0; i<3; ++i) {
+    reset_count_state(visit_state, graphs[0]);
+    traversal_algo(graphs[0].root, visit_state, monotonic_count_visitor);
+    ASSERT_VISIT_COUNT(traversal_algo, visit_state, true);
+  }
+
+  graphs[1] = build_graph_with_cycles(graph_size);
+  for(uint32_t i=0; i<3; ++i) {
+    reset_count_state(visit_state, graphs[1]);
+    traversal_algo(graphs[1].root, visit_state, monotonic_count_visitor);
+    ASSERT_VISIT_COUNT(traversal_algo, visit_state, true);
+  }
+
+  graphs[2] = build_graph_with_undirected_cycles(graph_size);
+  for(uint32_t i=0; i<3; ++i) {
+    reset_count_state(visit_state, graphs[2]);
+    traversal_algo(graphs[2].root, visit_state, count_visitor);
+    ASSERT_VISIT_COUNT(traversal_algo, visit_state, true);
+  }
+
+  for(int i=0; i<sizeof(graphs)/sizeof(GraphHandle); ++i)
+    free_graph(graphs[i]);
+  free_count_state(visit_state);
+}
+
 void helper_traversal_on_three_four_nodes(TraversalAlgo_t traversal_algo) {
   VisitorState* visit_state = new_count_state();
 
@@ -219,10 +249,27 @@ void test_destructive_pointer_reversal_traversal(uint32_t size) {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void test_destructive_pointer_back_and_forth_traversal(uint32_t size) {
-  //helper_traversal_on_three_four_nodes(destructive_pointer_back_and_forth_traversal);
+  helper_traversal_on_three_four_nodes(destructive_pointer_back_and_forth_traversal);
   helper_traversal_on_branches(destructive_pointer_back_and_forth_traversal);
-  //helper_traversal_on_single_branch(destructive_pointer_back_and_forth_traversal);
-  //helper_traversal_on_loop_to_itself(destructive_pointer_back_and_forth_traversal);
-  //helper_traversal_on_real_graphs(size, destructive_pointer_back_and_forth_traversal);
+  helper_traversal_on_single_branch(destructive_pointer_back_and_forth_traversal);
+  helper_traversal_on_loop_to_itself(destructive_pointer_back_and_forth_traversal);
+  helper_traversal_on_real_graphs(size, destructive_pointer_back_and_forth_traversal);
+}
+
+void test_pointer_reversal_traversal(uint32_t size) {
+  helper_traversal_on_three_four_nodes(pointer_reversal_traversal);
+  helper_traversal_on_branches(pointer_reversal_traversal);
+  helper_traversal_on_single_branch(pointer_reversal_traversal);
+  helper_traversal_on_loop_to_itself(pointer_reversal_traversal);
+  helper_traversal_on_real_graphs(size, pointer_reversal_traversal);
+  helper_non_destructive_traversal_on_real_graphs(size, pointer_reversal_traversal);
+
+  /*VisitorState* visit_state = new_count_state();
+  GraphHandle graph = build_graph_with_cycles(size);
+  reset_count_state(visit_state, graph);
+  pointer_reversal_traversal(graph.root, visit_state, count_visitor);
+  ASSERT_VISIT_COUNT(pointer_reversal_traversal, visit_state, true);
+  free_graph(graph);
+  free_count_state(visit_state);*/
 }
 

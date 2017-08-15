@@ -220,7 +220,7 @@ void dump_graph_dot_format(GraphHandle graph, const char* filepath) {
   LOG_INFO("Dumping graph to %s", filepath);
   ASSERT(dot_file, "Failed to open file");
 
-  fprintf(dot_file, "strict digraph {\n");
+  fprintf(dot_file, "digraph {\n");
   fprintf(dot_file, "  node  [ nodesep=1.5 ];\n");
   fprintf(dot_file, "  graph [ overlap=false; bgcolor=\"grey\" ];\n");
   fprintf(dot_file, "  edge  [ weight=0.5 ];\n");
@@ -243,6 +243,10 @@ void dump_graph_dot_format(GraphHandle graph, const char* filepath) {
       if (child)
         if (is_backwards(node->slots[slot]))
           fprintf_edge_dot_format(dot_file, node, child, "red");
+        else if (get_flags_on_edge(node->slots[slot], SET_TRAVERSE_FLAG))
+          fprintf_edge_dot_format(dot_file, node, child, "blue");
+        else if (get_flags_on_edge(node->slots[slot], SET_VISIT_FLAG))
+          fprintf_edge_dot_format(dot_file, node, child, "green4");
         else
           fprintf_edge_dot_format(dot_file, node, child, NULL);
       else if (is_backwards(node->slots[slot]))
