@@ -1,5 +1,8 @@
 #include <util.h>
 
+#include <stdlib.h>
+
+#include <logger.h>
 #include <common.h>
 
 Stack build_stack(size_t capacity) {
@@ -32,6 +35,38 @@ void* peek(Stack* stack, size_t index) {
   ASSERT(index < stack->next, "Invalid stack location");
   return stack->items[index];
 }
+
+////////////////////////////////////////////////////////////////////////////
+
+SillyVector build_vector(size_t capacity) {
+  SillyVector vector = {0};
+  if(capacity) {
+    vector.items = calloc(capacity, sizeof(void*));
+    vector.capacity = capacity;
+  }
+  return vector;
+}
+
+void free_vector(SillyVector* vector) {
+  if (vector->items)
+    free(vector->items);
+}
+
+uint32_t vector_contains(SillyVector* vector, void* item) {
+  uint32_t found = 0;
+  for(; found < vector->capacity && item != vector->items[found]; ++found);
+  return found < vector->capacity;
+}
+
+void* vector_append(SillyVector* vector, void* item) {
+  if (vector->capacity <= vector->size) return NULL;
+  vector->items[vector->size] = item;
+  vector->size += 1;
+  return item;
+}
+
+uint32_t vector_size(SillyVector* vector) { return vector->size; }
+uint32_t vector_capacity(SillyVector* vector) { return vector->capacity; }
 
 ////////////////////////////////////////////////////////////////////////////
 

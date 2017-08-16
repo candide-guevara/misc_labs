@@ -1,5 +1,8 @@
 #include <special_traversals.h>
 
+#include <stdlib.h>
+
+#include <logger.h>
 #include <common.h>
 #include <util.h>
 
@@ -171,16 +174,18 @@ void pr_debug_pointer_traversal_state(Pr_TraverseState state, VisitorState* visi
   char filepath[128];
   static uint32_t __NAME_ID__ = 0;
 
-  Node *root = visit_state->graph.root;
-  #pragma GCC diagnostic ignored "-Wformat-truncation"
-  snprintf(filepath, sizeof(filepath), "graph_%s_%u_%s_%u.dot", 
-            root->name, __NAME_ID__++, state.current->name, state.next_slot);
-  #pragma GCC diagnostic pop
-  //dump_graph_dot_format(visit_state->graph, filepath);
-
   LOG_INFO("state : %p, %p, %u, %lu", state.current, state.previous, state.next_slot, state.tag_token);
   LOG_INFO("current : %s", print_node(state.current));
   LOG_INFO("previous : %s\n", print_node(state.previous));
+
+  if(visit_state) {
+    Node *root = visit_state->graph.root;
+    #pragma GCC diagnostic ignored "-Wformat-truncation"
+    snprintf(filepath, sizeof(filepath), "graph_%s_%u_%s_%u.dot", 
+              root->name, __NAME_ID__++, state.current->name, state.next_slot);
+    #pragma GCC diagnostic pop
+    dump_graph_dot_format(visit_state->graph, filepath);
+  }
   #endif
 }
 
@@ -376,14 +381,17 @@ uint32_t bf_pathological_branch_loop_back(Node *node, uint32_t child_edge) {
 void bf_debug_pointer_traversal_state(Bf_TraverseState state, VisitorState* visit_state) {
   #ifdef TRAVERSE_TRACE
   char filepath[128];
-  Node *root = visit_state->graph.root;
-  snprintf(filepath, sizeof(filepath), "graph_%s_%u_%u_%u.dot", 
-            root->name, state.gen, state.next_tail_gen, state.queue_len);
-  dump_graph_dot_format(visit_state->graph, filepath);
 
   LOG_INFO("state : %p, %p, %u, %u, %u", state.tail, state.parent, state.gen, state.next_tail_gen, state.queue_len);
   LOG_INFO("tail : %s", print_node(state.tail));
   LOG_INFO("parent : %s\n", print_node(state.parent));
+
+  if (visit_state) {
+    Node *root = visit_state->graph.root;
+    snprintf(filepath, sizeof(filepath), "graph_%s_%u_%u_%u.dot", 
+              root->name, state.gen, state.next_tail_gen, state.queue_len);
+    dump_graph_dot_format(visit_state->graph, filepath);
+  }
   #endif
 }
 
