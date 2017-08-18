@@ -44,7 +44,6 @@ GraphHandle build_graph_amorphous(uint32_t size);
 GraphHandle build_graph_single_branch(uint32_t size);
 
 void standard_depth_first_traversal(Node* node, VisitorState* visit_state, Visitor_t visitor);
-void destructive_std_depth_first_traversal(Node* node, VisitorState* visit_state, Visitor_t visitor);
 void two_way_depth_first_traversal(Node* node, VisitorState* visit_state, 
                                     Visitor_t in_visitor, Visitor_t out_visitor);
 

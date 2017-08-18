@@ -89,3 +89,8 @@ int chrono_to_csv_by_id(char*, int, ChronoId);
 int chrono_to_csv_by_obj(char*, int, const char*, const struct rusage*);
 void produce_chrono_report(char*, int);
 
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+// you need to linker flags -ldl and -rdynamic (dlsym only finds symbols in the dynamic table)
+void* get_function_by_name(const char*);
+

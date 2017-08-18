@@ -49,6 +49,26 @@ void destructive_pointer_reversal_traversal(Node* node, VisitorState* visit_stat
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static void destructive_std_depth_first_traversal_helper(
+    Node* node, VisitorState* visit_state, Visitor_t visitor, uint32_t stack_depth) {
+  // We add a max recursion depth to avoid overflow even if it changes traversal order
+  if (!node || node->count == 1 || stack_depth > 8192) return;
+  LOG_TRACE("Visit : %s", node->name);
+  visitor(visit_state, node);
+  node->count = 1;
+
+  for(uint32_t slot=0; slot < SLOT_COUNT; ++slot) {
+    Node* child = node->slots[slot];
+    destructive_std_depth_first_traversal_helper(child, visit_state, visitor, stack_depth+1);
+  }
+}
+
+void destructive_std_depth_first_traversal(Node* node, VisitorState* visit_state, Visitor_t visitor) {
+  destructive_std_depth_first_traversal_helper(node, visit_state, visitor, 0);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void pointer_reversal_traversal(Node* node, VisitorState* visit_state, Visitor_t visitor) {
   Pr_TraverseState state = pr_prepare_initial_state__mut(node, visit_state, visitor);
 

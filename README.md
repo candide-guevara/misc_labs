@@ -14,8 +14,9 @@ Instead of keeping the visited nodes inside a separate stack (depth-first) or qu
 ## Dependencies
 
 * [graphviz][1] : displays graphs dump in dot files
-* perf events : collects hardware counters and profiles
+* [perf events][2] : collects hardware counters and profiles
 * [flamegraph][0] : outputs a nice representation of profiling data
+* matplotlib and pandas : plot traversal time as a function of vertex count
 
 ## Usage
 
@@ -30,7 +31,9 @@ Instead of keeping the visited nodes inside a separate stack (depth-first) or qu
 * `bin/` : where build artifacts are stored
 * `include/` : header files
 * `src/` : the code, tests, and stress tests
+* `etc/` : misc scripts
 
 [0]: https://github.com/brendangregg/FlameGraph
 [1]: http://www.graphviz.org/
+[2]: http://sandsoftwaresound.net/perf/perf-tut-count-hw-events/
 

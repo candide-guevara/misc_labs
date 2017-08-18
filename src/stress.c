@@ -1,6 +1,7 @@
 #include <stress.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <logger.h>
 #include <common.h>
@@ -37,7 +38,7 @@ uint32_t stress_evaluate_runtime_complexity_helper(
     ChronoId chrono, char* buffer, uint32_t buflen) {
   uint32_t init_buflen = buflen;
   
-  for(uint32_t size=8192; size<512*1024; size+=64*1024) {
+  for(uint32_t size=8192; size<512*1024; size+=32*1024) {
     GraphHandle graph = graph_builder(size);
     PersistedGraph graph_buf = persist_graph_to_new_buffer(graph);
 
@@ -73,17 +74,32 @@ void stress_profile_algo(uint32_t size, PersistedGraph graph_buf, GraphBuilder g
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void stress_profile_algo_on_all_graph_types(uint32_t size, TraversalAlgo_t traversal_algo) {
+void stress_profile_algo_on_all_graph_types(uint32_t size, const char* algo_name) {
+  TraversalAlgo_t traversal_algo = get_function_by_name(algo_name);
+  if (traversal_algo == NULL) {
+    LOG_WARN("Could not find algorithm name : '%s'", algo_name);
+    return;
+  }
   PersistedGraph graph_buf = build_persist_graph_buffer(size);
+
   stress_profile_algo(size, graph_buf, build_graph_dag, traversal_algo);
   stress_profile_algo(size, graph_buf, build_graph_with_undirected_cycles, traversal_algo);
   stress_profile_algo(size, graph_buf, build_graph_with_cycles, traversal_algo);
+
   free_persisted_graph(graph_buf);
 }
 
-void stress_runtime_complexity_all_algo() {
+void stress_runtime_complexity_all_algo(const char* report_name) {
   char* buffer = malloc(1024*1024);
   uint32_t written, bufpos=0, buflen=1024*1024;
+
+  report_name = report_name ? report_name : "complexity_runtime.log";
+  FILE *report = fopen(report_name, "w");
+  ASSERT(report, "Failed to open for write : %s", report_name);
+
+  written = chrono_header_to_csv(buffer, buflen);
+  bufpos += written;
+  buflen -= written;
 
 /* destructive_pointer_reversal_traversal */
 
@@ -177,7 +193,9 @@ void stress_runtime_complexity_all_algo() {
   bufpos += written;
   buflen -= written;
 
-  LOG_WARN("Timings :\n%s", buffer);
+  written = fwrite(buffer, sizeof(char), bufpos, report);
+  ASSERT(written == bufpos, "Failed to write report : %s", report_name);
   free(buffer);
+  fclose(report);
 }
 

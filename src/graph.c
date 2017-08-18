@@ -207,18 +207,6 @@ void standard_depth_first_traversal(Node* node, VisitorState* visit_state, Visit
   }
 }
 
-void destructive_std_depth_first_traversal(Node* node, VisitorState* visit_state, Visitor_t visitor) {
-  if (!node || node->count == 1) return;
-  LOG_TRACE("Visit : %s", node->name);
-  visitor(visit_state, node);
-  node->count = 1;
-
-  for(uint32_t slot=0; slot < SLOT_COUNT; ++slot) {
-    Node* child = node->slots[slot];
-    destructive_std_depth_first_traversal(child, visit_state, visitor);
-  }
-}
-
 void two_way_depth_first_traversal(Node* node, VisitorState* visit_state, 
                                    Visitor_t in_visitor, Visitor_t out_visitor) {
   if (!node) return;
