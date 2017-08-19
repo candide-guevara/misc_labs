@@ -34,11 +34,11 @@ struct rusage differential_traversal_measurement(
 }
 
 uint32_t stress_evaluate_runtime_complexity_helper(
-    GraphBuilder graph_builder, TraversalAlgo_t traversal_algo, 
+    uint32_t max_size, GraphBuilder_t graph_builder, TraversalAlgo_t traversal_algo, 
     ChronoId chrono, char* buffer, uint32_t buflen) {
   uint32_t init_buflen = buflen;
   
-  for(uint32_t size=8192; size<512*1024; size+=32*1024) {
+  for(uint32_t size=8192; size<max_size; size+=max_size/51) {
     GraphHandle graph = graph_builder(size);
     PersistedGraph graph_buf = persist_graph_to_new_buffer(graph);
 
@@ -59,7 +59,7 @@ uint32_t stress_evaluate_runtime_complexity_helper(
   return init_buflen - buflen;
 }
 
-void stress_profile_algo(uint32_t size, PersistedGraph graph_buf, GraphBuilder graph_builder, TraversalAlgo_t traversal_algo) {
+void stress_profile_algo(uint32_t size, PersistedGraph graph_buf, GraphBuilder_t graph_builder, TraversalAlgo_t traversal_algo) {
   const uint32_t repetitions = 16;
   GraphHandle graph = graph_builder(size);
   persist_graph_to_old_buffer(&graph_buf, graph);
@@ -74,26 +74,27 @@ void stress_profile_algo(uint32_t size, PersistedGraph graph_buf, GraphBuilder g
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void stress_profile_algo_on_all_graph_types(uint32_t size, const char* algo_name) {
+void stress_profile_algo_on_graph_type (uint32_t size, const char* report_name, const char* algo_name, const char* graph_name) {
   TraversalAlgo_t traversal_algo = get_function_by_name(algo_name);
-  if (traversal_algo == NULL) {
-    LOG_WARN("Could not find algorithm name : '%s'", algo_name);
-    return;
-  }
+  if (traversal_algo == NULL) return;
   PersistedGraph graph_buf = build_persist_graph_buffer(size);
 
-  stress_profile_algo(size, graph_buf, build_graph_dag, traversal_algo);
-  stress_profile_algo(size, graph_buf, build_graph_with_undirected_cycles, traversal_algo);
-  stress_profile_algo(size, graph_buf, build_graph_with_cycles, traversal_algo);
-
+  if (is_null_or_empty(graph_name)) {
+    stress_profile_algo(size, graph_buf, build_graph_dag, traversal_algo);
+    stress_profile_algo(size, graph_buf, build_graph_with_undirected_cycles, traversal_algo);
+    stress_profile_algo(size, graph_buf, build_graph_with_cycles, traversal_algo);
+  }
+  else {
+    GraphBuilder_t builder_func = get_function_by_name(graph_name);
+    stress_profile_algo(size, graph_buf, builder_func, traversal_algo);
+  }
   free_persisted_graph(graph_buf);
 }
 
-void stress_runtime_complexity_all_algo(const char* report_name) {
+void stress_runtime_complexity_all_algo (uint32_t size, const char* report_name, const char* algo_name, const char* graph_name) {
   char* buffer = malloc(1024*1024);
   uint32_t written, bufpos=0, buflen=1024*1024;
 
-  report_name = report_name ? report_name : "complexity_runtime.log";
   FILE *report = fopen(report_name, "w");
   ASSERT(report, "Failed to open for write : %s", report_name);
 
@@ -101,97 +102,22 @@ void stress_runtime_complexity_all_algo(const char* report_name) {
   bufpos += written;
   buflen -= written;
 
-/* destructive_pointer_reversal_traversal */
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_dag, destructive_pointer_reversal_traversal, 
-    DESTRUCT_PTR_REVERSAL_DAG, buffer + bufpos, buflen);
-
-  bufpos += written;
+#define stress_evaluate_runtime_complexity_macro_helper(builder, algo, enum_name) \
+  written = stress_evaluate_runtime_complexity_helper( \
+    size, builder, algo,                               \
+    enum_name, buffer + bufpos, buflen);               \
+  bufpos += written;                                   \
   buflen -= written;
 
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_with_undirected_cycles, destructive_pointer_reversal_traversal, 
-    DESTRUCT_PTR_REVERSAL_UCYCLE, buffer + bufpos, buflen);
+#define stress_evaluate_runtime_complexity_macro(algo, enum_prefix) \
+  stress_evaluate_runtime_complexity_macro_helper(build_graph_dag, algo, enum_prefix ## _DAG); \
+  stress_evaluate_runtime_complexity_macro_helper(build_graph_with_undirected_cycles, algo, enum_prefix ## _UCYCLE); \
+  stress_evaluate_runtime_complexity_macro_helper(build_graph_with_cycles, algo, enum_prefix ## _DCYCLE)
 
-  bufpos += written;
-  buflen -= written;
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_with_cycles, destructive_pointer_reversal_traversal, 
-    DESTRUCT_PTR_REVERSAL_DCYCLE, buffer + bufpos, buflen);
-
-  bufpos += written;
-  buflen -= written;
-
-/* destructive_pointer_back_and_forth_traversal */
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_dag, destructive_pointer_back_and_forth_traversal, 
-    DESTRUCT_BACK_FORTH_DAG, buffer + bufpos, buflen);
-
-  bufpos += written;
-  buflen -= written;
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_with_undirected_cycles, destructive_pointer_back_and_forth_traversal, 
-    DESTRUCT_BACK_FORTH_UCYCLE, buffer + bufpos, buflen);
-
-  bufpos += written;
-  buflen -= written;
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_with_cycles, destructive_pointer_back_and_forth_traversal, 
-    DESTRUCT_BACK_FORTH_DCYCLE, buffer + bufpos, buflen);
-
-  bufpos += written;
-  buflen -= written;
-
-/* pointer_reversal_traversal */
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_dag, pointer_reversal_traversal, 
-    PTR_REVERSAL_DAG, buffer + bufpos, buflen);
-
-  bufpos += written;
-  buflen -= written;
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_with_undirected_cycles, pointer_reversal_traversal, 
-    PTR_REVERSAL_UCYCLE, buffer + bufpos, buflen);
-
-  bufpos += written;
-  buflen -= written;
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_with_cycles, pointer_reversal_traversal, 
-    PTR_REVERSAL_DCYCLE, buffer + bufpos, buflen);
-
-  bufpos += written;
-  buflen -= written;
-
-/* destructive_std_depth_first_traversal */
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_dag, destructive_std_depth_first_traversal, 
-    STD_DEPTH_FIRST_DAG, buffer + bufpos, buflen);
-
-  bufpos += written;
-  buflen -= written;
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_with_undirected_cycles, destructive_std_depth_first_traversal, 
-    STD_DEPTH_FIRST_UCYCLE, buffer + bufpos, buflen);
-
-  bufpos += written;
-  buflen -= written;
-
-  written = stress_evaluate_runtime_complexity_helper(
-    build_graph_with_cycles, destructive_std_depth_first_traversal, 
-    STD_DEPTH_FIRST_DCYCLE, buffer + bufpos, buflen);
-
-  bufpos += written;
-  buflen -= written;
+  stress_evaluate_runtime_complexity_macro (destructive_pointer_reversal_traversal,       DESTRUCT_PTR_REVERSAL);
+  stress_evaluate_runtime_complexity_macro (destructive_pointer_back_and_forth_traversal, DESTRUCT_BACK_FORTH);
+  stress_evaluate_runtime_complexity_macro (pointer_reversal_traversal,                   PTR_REVERSAL);
+  stress_evaluate_runtime_complexity_macro (destructive_std_depth_first_traversal,        STD_DEPTH_FIRST);
 
   written = fwrite(buffer, sizeof(char), bufpos, report);
   ASSERT(written == bufpos, "Failed to write report : %s", report_name);

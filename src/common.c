@@ -126,14 +126,6 @@ void produce_chrono_report(char* buffer, int buflen) {
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 void* get_function_by_name(const char *func_name) {
-  static void* symbol_handle = NULL;
-  if (!symbol_handle) {
-    symbol_handle = dlopen(NULL, RTLD_LAZY|RTLD_LOCAL);
-    if (!symbol_handle) {
-      LOG_ERROR("Cannot open symbol table : %s", dlerror());
-      return NULL;
-    }
-  }
   void *symbol = dlsym(RTLD_DEFAULT, func_name);
   if (!symbol)
     LOG_ERROR("Cannot find symbol '%s' : %s", func_name, dlerror());

@@ -6,9 +6,6 @@ typedef struct GraphHandle GraphHandle;
 typedef struct PersistedGraph PersistedGraph;
 typedef struct VisitorState VisitorState;
 
-typedef void (*Visitor_t)(VisitorState*, Node*);
-typedef void (*TraversalAlgo_t)(Node*, VisitorState*, Visitor_t);
-
 struct GraphHandle {
   Node* root;
   uint32_t vertex_count;
@@ -29,10 +26,12 @@ struct VisitorState {
   GraphHandle graph;
 };
 
+typedef void (*Visitor_t)(VisitorState*, Node*);
+typedef void (*TraversalAlgo_t)(Node*, VisitorState*, Visitor_t);
+typedef GraphHandle (*GraphBuilder_t)(uint32_t);
+
 void free_graph(GraphHandle graph);
 void free_persisted_graph(PersistedGraph graph);
-
-typedef GraphHandle (*GraphBuilder)(uint32_t);
 
 GraphHandle build_graph_without_any_edges(uint32_t size);
 GraphHandle build_graph_dag(uint32_t size);

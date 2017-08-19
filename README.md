@@ -20,11 +20,12 @@ Instead of keeping the visited nodes inside a separate stack (depth-first) or qu
 
 ## Usage
 
-* Go to `src/main.c` and uncomment what you want to run
+* Go to `src/main.c` and check available commands
+  * Example : `./project stress_runtime_complexity_all_algo 128K report.log`
 * Build the code (2 flavors debug and optimized) : `make dbg|opt`
 * Run the code in `bin/dbg/project`
+* Or run advanced tasks uding make targets : `complexity`,`hw_counters`,`flamegraph` ...
 * Generate svg graphs : `make images`
-* Profile with perf events (may need root priviledge) : `make dbg|opt_prof`
 
 ## Directories
 

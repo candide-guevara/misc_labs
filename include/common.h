@@ -91,6 +91,8 @@ void produce_chrono_report(char*, int);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
+#define is_null_or_empty(str) (str) == NULL || *(str) == '\0'
+
 // you need to linker flags -ldl and -rdynamic (dlsym only finds symbols in the dynamic table)
 void* get_function_by_name(const char*);
 

@@ -202,3 +202,17 @@ GraphHandle build_graph_branch_with_fanout() {
   return graph;
 }
 
+////////////////////////////////////////////////////////////////////////////
+
+int64_t atoi_with_base(const char *str_int) {
+  char *base_start = NULL;
+  int64_t result = strtoll(str_int, &base_start, 0);
+  if (base_start && *base_start != '\0') {
+    char base = *base_start;
+    if (base == 'K') result *= 1024;
+    if (base == 'M') result *= 1024*1024;
+    if (base == 'G') result *= 1024*1024*1024;
+  }
+  return result;
+}
+

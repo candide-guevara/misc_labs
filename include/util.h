@@ -123,3 +123,8 @@ void count_visitor (VisitorState* visit_state, Node* node);
 void monotonic_count_visitor (VisitorState* visit_state, Node* node);
 void nop_visitor (VisitorState* visit_state, Node* node);
 
+////////////////////////////////////////////////////////////////////////////
+
+// Bases accepted : K=1024, M=1024**2, G=1024**3
+int64_t atoi_with_base(const char *str_int);
+
