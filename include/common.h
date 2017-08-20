@@ -43,6 +43,28 @@ void __my_assert__(int condition);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
+#ifndef __LEVEL_DTRACE__
+  // you need to #include <sys/sdt.h>
+  #define __LEVEL_DTRACE__ 1
+#endif
+
+#ifndef __DTRACE_PROVIDER__
+  #define __DTRACE_PROVIDER__ traversal
+#endif
+
+// Cannot use __func__ because on some compilers it is defined as a variable and not as a macro
+#if __LEVEL_DTRACE__ > 0
+  #define MY_DTRACE_PROBE(name) DTRACE_PROBE(__DTRACE_PROVIDER__, name)
+  #define MY_DTRACE_PROBE1(name, arg1) DTRACE_PROBE1(__DTRACE_PROVIDER__, name, arg1)
+  #define MY_DTRACE_PROBE2(name, arg1, arg2) DTRACE_PROBE2(__DTRACE_PROVIDER__, name, arg1, arg2)
+#else
+  #define MY_DTRACE_PROBE(name)
+  #define MY_DTRACE_PROBE1(name, arg1)
+  #define MY_DTRACE_PROBE2(name, arg1, arg2)
+#endif
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
 #ifndef __LEVEL_CHRONO__
   #define __LEVEL_CHRONO__ 1
 #endif

@@ -1,6 +1,6 @@
 .ONESHELL:
 .SECONDARY:
-.PHONY: all clean images test complexity hw_counters flamegraph
+.PHONY: all clean images test complexity hw_counters flamegraph usr_dyn_probe usr_static_probe
 
 BIN_DIR := bin
 SRC_DIR := src
@@ -65,7 +65,7 @@ hw_counters : $(flavors)
 			report_name="hw_counters_$${flavor}_$${algo}.csv"
 			: > "$$report_name"
 			for event in "$${events[@]}"; do
-				sudo perf stat -x, --append -o "$$report_name" --append -e "$$event" -- \
+				sudo perf stat -x, --append -o "$$report_name" -e "$$event" -- \
 					$$flavor/$(EXE_NAME) stress_profile_algo_on_graph_type $$graph_size "" $$algo "$(mk_graph_type)"
 			done
 		done
@@ -87,6 +87,29 @@ flamegraph : $(flavors)
 			perf script | perl $(FLAME_ROOT)/stackcollapse-perf.pl | perl $(FLAME_ROOT)/flamegraph.pl --hash --minwidth=5 > $$report_name
 		done
 	done
+
+# Dynamic probes are not available in opt flavor
+usr_dyn_probe : dbg
+	cd $(BIN_DIR)
+	sudo perf probe -qx $</$(EXE_NAME) -a "$(EXE_NAME):prune=destructive_std_depth_first_traversal_helper:5 stack_depth"
+	sudo perf probe -qx $</$(EXE_NAME) -a "$(EXE_NAME):patho=bf_pathological_branch_loop_back:7 node"
+	sudo perf stat -e "$(EXE_NAME):*" -- \
+		$</$(EXE_NAME) stress_profile_algo_on_graph_type 256K "" destructive_std_depth_first_traversal build_graph_with_undirected_cycles
+	sudo perf stat -e "$(EXE_NAME):*" -- \
+		$</$(EXE_NAME) stress_profile_algo_on_graph_type 256K "" destructive_pointer_back_and_forth_traversal build_graph_with_undirected_cycles
+	sudo perf probe -qd "$(EXE_NAME):*"
+
+# TRAP : run the buildid as root otherwise it will not find the probes to add with `perf probe`
+usr_static_probe : opt
+	cd $(BIN_DIR)
+	sudo perf probe -qd "sdt_traversal:*"
+	sudo perf buildid-cache -p $</$(EXE_NAME) > /dev/null
+	sudo perf buildid-cache -a $</$(EXE_NAME) | tail
+	sudo perf probe -qa "sdt_traversal:*"
+	sudo perf stat -e "%sdt_traversal:*" -- \
+		$</$(EXE_NAME) stress_profile_algo_on_graph_type 256K "" destructive_std_depth_first_traversal build_graph_with_undirected_cycles
+	sudo perf stat -e "%sdt_traversal:*" -- \
+		$</$(EXE_NAME) stress_profile_algo_on_graph_type 256K "" destructive_pointer_back_and_forth_traversal build_graph_with_undirected_cycles
 
 package :
 	tar -hzcf package_$(shell date +%d_%m_%y).tar $(BIN_DIR) $(SRC_DIR) $(INC_DIR)

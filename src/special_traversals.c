@@ -1,6 +1,7 @@
 #include <special_traversals.h>
 
 #include <stdlib.h>
+#include <sys/sdt.h>
 
 #include <logger.h>
 #include <common.h>
@@ -52,7 +53,11 @@ void destructive_pointer_reversal_traversal(Node* node, VisitorState* visit_stat
 static void destructive_std_depth_first_traversal_helper(
     Node* node, VisitorState* visit_state, Visitor_t visitor, uint32_t stack_depth) {
   // We add a max recursion depth to avoid overflow even if it changes traversal order
-  if (!node || node->count == 1 || stack_depth > 8192) return;
+  if (!node || node->count == 1) return;
+  if (stack_depth > 8192) {
+    MY_DTRACE_PROBE1(prune_branch, stack_depth);
+    return; //place probe here to detect branch pruning
+  }
   LOG_TRACE("Visit : %s", node->name);
   visitor(visit_state, node);
   node->count = 1;
@@ -393,8 +398,10 @@ uint32_t bf_pathological_branch_loop_back(Node *node, uint32_t child_edge) {
   // The inverted edge we write while traversing forward serves as a "breadcrumb" 
   // to identify the previous nodes of this branch
   for(uint32_t i=0; i<SLOT_COUNT && !is_a_loop; ++i) 
-    if (is_backwards(child->slots[i])) 
+    if (is_backwards(child->slots[i])) {
+      MY_DTRACE_PROBE2(patho_branch_loop, node, child_edge);
       is_a_loop = 1;
+    }
   return is_a_loop;
 }
 
