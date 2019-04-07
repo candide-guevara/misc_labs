@@ -42,3 +42,14 @@ void __my_assert__(int condition);
 #define IGNORE_WARNING_POP \
   _Pragma(STRINGIFY(__COMPILER__ diagnostic pop)) \
 
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define DIE_IF_ERR(expr) \
+  if (expr) { perror(__FILE__ ":" STRINGIFY(__LINE__) " @< " #expr " >@ error"); exit(1); }
+
+#define DIE_IF_EQ(expr, expect) \
+  if ((expr) == expect) { perror(__FILE__ ":" STRINGIFY(__LINE__) " @< " #expr " >@ error"); exit(1); }
+
+#define DIE_IF_NEQ(expr, expect) \
+  if ((expr) != expect) { perror(__FILE__ ":" STRINGIFY(__LINE__) " @< " #expr " >@ error"); exit(1); }
+

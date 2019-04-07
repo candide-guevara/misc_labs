@@ -13,10 +13,10 @@ opt: CPPFLAGS := $(CPPFLAGS) -D_GNU_SOURCE -D__LEVEL_LOG__=2 -D__LEVEL_ASSERT__=
 dbg: CPPFLAGS := $(CPPFLAGS) -D_GNU_SOURCE -D__LEVEL_LOG__=4 -D__LEVEL_ASSERT__=1
 CFLAGS   := -std=c11 -I $(INC_DIR) -Wall -Werror
 opt: CFLAGS := $(CFLAGS) -mtune=native -march=native -O3
-dbg: CFLAGS := $(CFLAGS) -ggdb -fsanitize=address
+dbg: CFLAGS := $(CFLAGS) -ggdb 
 LDFLAGS  :=
-dbg: LDFLAGS := $(LDFLAGS) -fsanitize=address
-LDLIBS   :=
+dbg: LDFLAGS := $(LDFLAGS)
+LDLIBS   := -lpthread
 
 flavors = opt dbg
 headers = $(wildcard $(INC_DIR)/*.h)
