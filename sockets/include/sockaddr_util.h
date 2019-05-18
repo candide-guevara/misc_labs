@@ -17,7 +17,7 @@
 
 struct sockaddr* create_ip4_addr(const char* str_addr, uint16_t port) {
   // ugly but sets the memory to zero
-  LOG_INFO("create addr4 %s:%d", str_addr, port);
+  //LOG_INFO("create addr4 %s:%d", str_addr, port);
   struct sockaddr_in* addr = calloc(1, IPV4_LEN);
   addr->sin_family = AF_INET;
   addr->sin_port = htons(port);
@@ -28,7 +28,7 @@ struct sockaddr* create_ip4_addr(const char* str_addr, uint16_t port) {
 
 struct sockaddr* create_ip6_addr(const char* str_addr, uint16_t port) {
   // ugly but sets the memory to zero
-  LOG_INFO("create addr6 %s:%d", str_addr, port);
+  //LOG_INFO("create addr6 %s:%d", str_addr, port);
   struct sockaddr_in6* addr = calloc(1, IPV6_LEN);
   addr->sin6_family = AF_INET6;
   addr->sin6_port = htons(port);
@@ -40,7 +40,7 @@ struct sockaddr* create_ip6_addr(const char* str_addr, uint16_t port) {
 void devbind(int socket_fd, const char* devname) {
   char* devname_ = calloc(IFNAMSIZ, 1);
   strncpy(devname_, devname, strlen(devname));
-  LOG_INFO("[REQUIRES root] binding %d to %s", socket_fd, devname_);
+  //LOG_INFO("[REQUIRES root] binding %d to %s", socket_fd, devname_);
   DIE_IF_ERR( setsockopt(socket_fd, SOL_SOCKET, SO_BINDTODEVICE, devname_, strlen(devname_)) );
 }
 
