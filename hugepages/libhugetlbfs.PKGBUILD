@@ -1,4 +1,4 @@
-# Maintainer: Your Name <cguevaramari@gmail.com>
+# Maintainer: candide guevara marino <cguevaramari@gmail.com>
 rawname=libhugetlbfs
 pkgname=cg-libhugetlbfs
 pkgver=2.20
