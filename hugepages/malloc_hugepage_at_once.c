@@ -10,6 +10,7 @@ const uint64_t TOTAL_ALLOC = 4 * PAGE_2M;
 const uint64_t ITEM_COUNT = TOTAL_ALLOC / 8;
 
 int main(int argc, char *argv[]) {
+  printf("parent pid : %d\n", getpid());
   uint64_t *buffer = NULL;
   uint64_t total = 0;
 

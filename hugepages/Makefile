@@ -7,9 +7,9 @@ SRC_DIR := .
 STAGE_PATH := /tmp
 
 CC       := gcc
-CPPFLAGS := $(CPPFLAGS) -D_DEFAULT_SOURCE
-CFLAGS   := -std=c11 -Wall -Werror
-LDFLAGS  :=
+CPPFLAGS := $(CPPFLAGS) -D_GNU_SOURCE -D_DEFAULT_SOURCE
+CFLAGS   := -std=c11 -Wall -Werror -ggdb
+LDFLAGS  := -lrt
 
 c_files := $(wildcard $(SRC_DIR)/*.c)
 x_files := $(addprefix $(BIN_DIR)/, $(basename $(c_files)))

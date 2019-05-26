@@ -125,3 +125,14 @@ thp_swpout_fallback 0
   * THP works (for unaligned malloc the head cannot be coalesced)
 
 
+## mmap private/shared and file/anon
+
+| priv/shared | file/anon    | AnonHugePages | ShmemPmdMapped | Shared_Hugetlb | Private_Hugetlb |
+|-------------|--------------|---------------|----------------|----------------|-----------------|
+| shared      | shmopen      | 0             | 0              | 0              | 0               |
+| shared      | file         | 0             | 0              | 0              | 0               |
+| private     | file         | 0             | 0              | 0              | 0               |
+| private     | memfd_create | 0             | 0              | 0              | 8192 (populate) | 
+| shared      | anonymous    | 0             | 0              | 0              | 2048 (child 0?) |
+| private     | anonymous    | 0             | 0              | 0              | 2048            |
+

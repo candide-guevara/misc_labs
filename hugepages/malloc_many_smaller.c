@@ -7,11 +7,12 @@
 
 #define PAGE_2M     (1024*1024*2)
 #define TOTAL_ALLOC (PAGE_2M * 4)
-#define SEGMENT     (PAGE_2M / 256)
+#define SEGMENT     (PAGE_2M / 64)
 #define SEG_CNT     (TOTAL_ALLOC / SEGMENT)
 #define ITEM_COUNT  (SEGMENT / 8)
 
 int main(int argc, char *argv[]) {
+  printf("parent pid : %d\n", getpid());
   uint64_t *buffer[SEG_CNT] = {NULL};
   uint64_t total = 0;
 
