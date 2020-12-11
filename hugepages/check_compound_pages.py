@@ -5,6 +5,7 @@ PAGE_2M = 2 * 1024**2
 MAX_MEM = 32 * 1024**3
 PFN_LEN = 8
 PFN_FLG_LEN = 8
+MAP_CNT_LEN = 8
 
 class Vma(collections.namedtuple('_Vma', ['start', 'end', 'map'])):
   sep_rx = re.compile('\s+')
@@ -21,7 +22,7 @@ class Vma(collections.namedtuple('_Vma', ['start', 'end', 'map'])):
         
 
 # https://www.kernel.org/doc/html/latest/admin-guide/mm/pagemap.html?highlight=pagemap
-class PageFrame(collections.namedtuple('_PageFrame', ['pfn', 'vpage', 'flags'])):
+class PageFrame(collections.namedtuple('_PageFrame', ['pfn', 'vpage', 'flags', 'map_cnt'])):
   def is_present(self): return (self.pfn >> 63) % 2 
   def is_filemap(self): return (self.pfn >> 61) % 2 
   def is_exclmap(self): return (self.pfn >> 56) % 2 
@@ -33,6 +34,7 @@ class PageFrame(collections.namedtuple('_PageFrame', ['pfn', 'vpage', 'flags']))
   def is_tail(self): return (self.flags >> 16) % 2 
   def is_huge(self): return (self.flags >> 17) % 2 
   def is_none(self): return (self.flags >> 20) % 2 
+  def is_krsm(self): return (self.flags >> 21) % 2 
   def is_trhp(self): return (self.flags >> 22) % 2 
 
   def addr(self): return self.pfn & 0x000fffffffffffff
@@ -62,7 +64,7 @@ def get_pfn_for_virtual_ranges(pid, virtual_ranges):
       for page in range(vma.start, vma.end, PAGE_4K):
         fileobj.readinto(buf)
         pfn = struct.unpack('=Q', buf)[0]
-        frames.append(PageFrame(pfn, page, None))
+        frames.append(PageFrame(pfn, page, None, None))
       virt_to_phy_map[vma] = frames
   return virt_to_phy_map
 
@@ -77,7 +79,7 @@ def add_flags_to_phy_pages(virt_to_phy_map):
         fileobj.seek(PFN_FLG_LEN * pfn.addr(), os.SEEK_SET)
         fileobj.readinto(buf)
         flags = struct.unpack('=Q', buf)[0]
-        new_pfn = PageFrame(pfn.pfn, pfn.vpage, flags)
+        new_pfn = PageFrame(pfn.pfn, pfn.vpage, flags, None)
         # wtf ?! pfn are higher than installed memory ?
         #assert not new_pfn.is_none() and new_pfn.addr() * PAGE_4K < MAX_MEM, \
         #  "%x, %x <? %x" % (new_pfn.pfn, new_pfn.addr() * PAGE_4K, MAX_MEM)
@@ -85,16 +87,37 @@ def add_flags_to_phy_pages(virt_to_phy_map):
   return virt_to_phy_map  
 
 
+def add_mapcount_to_phy_pages(virt_to_phy_map):
+  buf = bytearray(b'\x00' * MAP_CNT_LEN)
+  with open('/proc/kpagecount', 'rb') as fileobj:
+    assert fileobj.readable() and fileobj.seekable() 
+
+    for vma,frames in virt_to_phy_map.items():
+      for idx,pfn in enumerate(frames):
+        fileobj.seek(MAP_CNT_LEN * pfn.addr(), os.SEEK_SET)
+        fileobj.readinto(buf)
+        cnt = struct.unpack('=Q', buf)[0]
+        new_pfn = PageFrame(pfn.pfn, pfn.vpage, pfn.flags, cnt)
+        frames[idx] = new_pfn
+  return virt_to_phy_map  
+
+
 def display_huge_page_info(virt_to_phy_map):
-  to_str = lambda p: "paddr:%14x, vaddr:%14x, raw:%8x, is_mmap:%d, is_anon:%d, is_huge:%d, is_trhp:%d, is_head:%d, is_tail:%d" % (
-    p.addr()*PAGE_4K, p.vpage, p.flags, p.is_mmap(), p.is_anon(), p.is_huge(), p.is_trhp(), p.is_head(), p.is_tail(),
+  #to_str = lambda p: "paddr:%14x, vaddr:%14x, raw:%8x, is_mmap:%d, is_anon:%d, is_huge:%d, is_trhp:%d, is_head:%d, is_tail:%d" % (
+  #  p.addr()*PAGE_4K, p.vpage, p.flags, p.is_mmap(), p.is_anon(), p.is_huge(), p.is_trhp(), p.is_head(), p.is_tail(),
+  #)
+  to_str = lambda p: "paddr:%14x, vaddr:%14x, is_filemap:%d, is_exclmap:%d, is_mmap:%d, is_anon:%d, is_krsm:%d, map_cnt:%d" % (
+                p.addr()*PAGE_4K, p.vpage, p.is_filemap(), p.is_exclmap(), p.is_mmap(), p.is_anon(), p.is_krsm(), p.map_cnt
+  )
+  to_str = lambda p: "is_filemap:%d, is_exclmap:%d, is_mmap:%d, is_anon:%d, is_krsm:%d, map_cnt:%d" % (
+                     p.is_filemap(), p.is_exclmap(), p.is_mmap(), p.is_anon(), p.is_krsm(), p.map_cnt
   )
   for vma,frames in virt_to_phy_map.items():
-    print(vma)
+    print("map:'%s' size:%d" % (vma.map, vma.end - vma.start))
     for pfn in frames:
-      #if pfn.is_present() and pfn.is_anon():
-      if pfn.is_present() and (pfn.is_huge() or pfn.is_trhp() or pfn.is_head() or pfn.is_tail()):
-        print(to_str(pfn))
+      #if pfn.is_present() and (pfn.is_huge() or pfn.is_trhp() or pfn.is_head() or pfn.is_tail()):
+      if pfn.is_present():
+        print("  ", to_str(pfn))
     print()
 
 
@@ -103,6 +126,7 @@ def main (args):
   virtual_ranges = scan_vma_for_pid(pid)
   virt_to_phy_map = get_pfn_for_virtual_ranges(pid, virtual_ranges)
   add_flags_to_phy_pages(virt_to_phy_map)
+  add_mapcount_to_phy_pages(virt_to_phy_map)
   display_huge_page_info(virt_to_phy_map)
 
 
